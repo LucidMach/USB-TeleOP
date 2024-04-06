@@ -5,114 +5,134 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useState} from 'react';
 import {
+  Alert,
+  Button,
   SafeAreaView,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
-
+import {Slider} from '@miblanchard/react-native-slider';
 import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+  UsbSerialManager,
+  Parity,
+  UsbSerial,
+} from 'react-native-usb-serialport-for-android';
 
 function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+  const [serialConn, setSerialConn] = useState<UsbSerial>();
+  const [H, setH] = useState(0);
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-  };
+  async function connectSerialPort() {
+    try {
+      // check for the available devices
+      UsbSerialManager.list().then(devices => {
+        Alert.alert(devices[0].deviceId.toString());
+        // Send request for the first available device
+        UsbSerialManager.tryRequestPermission(devices[0].deviceId).then(
+          granted => {
+            if (granted) {
+              //connect to 1st device (usually phones have only 1 usb port)
+              UsbSerialManager.open(devices[0].deviceId, {
+                baudRate: 115200,
+                parity: Parity.None,
+                dataBits: 8,
+                stopBits: 1,
+              }).then(port => {
+                setSerialConn(port);
+                serialConn?.send('hello world');
+              });
+            }
+          },
+        );
+      });
+      // open the port for communication
+    } catch (err: any) {
+      Alert.alert(err);
+    }
+  }
+
+  async function sendData(data: any) {
+    if (serialConn?.deviceId) {
+      serialConn.send(data);
+    }
+  }
+  // async function getDeviceList() {
+  //   setDeviceList(await UsbSerialManager.list());
+  //   try {
+  //     await UsbSerialManager.tryRequestPermission(2004);
+  //     const usbSerialport = await UsbSerialManager.open(2004, {
+  //       baudRate: 115200,
+  //       parity: Parity.None,
+  //       dataBits: 8,
+  //       stopBits: 1,
+  //     });
+
+  //     await usbSerialport.send('hello');
+
+  //     usbSerialport.close();
+  //   } catch (err) {
+  //     console.warn(err);
+  //   }
+  // }
+
+  // useEffect(() => {
+  //   getDeviceList();
+  // }, []);
+
+  // useEffect(() => {
+  //   getDeviceList();
+
+  //   // const data = {
+  //   //   direction: 'F',
+  //   //   value: H,
+  //   // };
+
+  //   // if (usbSerialport.current) {
+  //   //   usbSerialport.current.send(data.value);
+  //   // }
+  // }, [H]);
+
+  // useEffect(() => {
+  //   const data = {
+  //     direction: 'F',
+  //     value: 'hello',
+  //   };
+
+  //   if (usbSerialport.current) {
+  //     setInterval(() => usbSerialport.current.send(data.value), 1000);
+  //   }
+  // }, []);
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+    <SafeAreaView>
+      <StatusBar />
+      <ScrollView contentInsetAdjustmentBehavior="automatic">
+        <View>
+          {serialConn ? (
+            <View>
+              <Text>Connected to {serialConn.deviceId}</Text>
+              <Slider
+                value={H}
+                maximumValue={100}
+                minimumValue={-100}
+                onValueChange={v => {
+                  setH(v[0]);
+                  sendData(v[0]);
+                }}
+              />
+              <Button onPress={() => sendData('hi')} title="Hi" />
+            </View>
+          ) : (
+            <Button onPress={() => connectSerialPort()} title="Connect" />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-});
 
 export default App;
