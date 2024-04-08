@@ -43,7 +43,8 @@ function App(): React.JSX.Element {
                 stopBits: 1,
               }).then(port => {
                 setSerialConn(port);
-                serialConn?.send('hello world');
+                // serialConn?.send('hello world');
+                port.send('hello world');
               });
             }
           },
